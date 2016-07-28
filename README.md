@@ -1,35 +1,32 @@
-##BinaryCluster-YaraGenerator
-+ Continuous Integration (Travis-CI)  
-[![Build Status](https://travis-ci.org/ZSShen/BinaryCluster-YaraGenerator.svg?branch=master)](https://travis-ci.org/ZSShen/BinaryCluster-YaraGenerator)
+[![Build Status](https://travis-ci.org/ZSShen/MeltingPot.svg?branch=master)](https://travis-ci.org/ZSShen/MeltingPot)
 
-###Abstract  
-+ Input - A set of files with the same format type.  
-+ Objective - Similarity clustering for the file slices and common byte sequence extraction for the slice clusters.    
-+ Output - A set of patterns each of which describes the attributes of the common sequences of a slice cluster.  
-<img src="https://raw.githubusercontent.com/ZSShen/BinaryCluster-YaraGenerator/master/res/picture/Engine Intro.png" width="520px" height="440px"/>  
+# **MeltingPot** 
+|<img src="https://raw.githubusercontent.com/ZSShen/BinaryCluster-YaraGenerator/master/res/picture/Engine Intro.png" width="660px" height="570"/>  |
+|---|
+| MeltingPot is an ***automated common binary signature extractor and pattern generator***. For the given sample set with the ***same file format***, it slices each file into small pieces of binary sequences and correlates the files sharing the similar sequences. To show the result, MeltingPot generates a set of ***[YARA] formatted patterns*** each of which represents the common signature of a certain file cluster. Such patterns can be directly applied by YARA scan engine. |
 
-###Introduction  
-In this project, we term the `slice` as an arbitrary binary segment of a file with a designated size. This tool correlates such file slices by examining the similar byte sequences shared among them. To summarize the result, the tool produces a set of [YARA] formatted patterns each of which represents the common byte sequences extracted from a certain file cluster. Essentially, such patterns can be directly applied by YARA scan engine.
 
-In general, the tool is composed of the main engine and the supporting plugins. The relation is briefly illustrated here:   
+## **Introduction**  
+**MeltingPot is composed of the main engine and the supporting plugins. The relation is briefly illustrated here:**  
 + The engine first loads the user specified configuration.  
-+ It then applies the `file slicing plugin` to slice input files.
-+ It then correlates the slices by examining their similarity with the help of `similarity comparison plugin`.  
-+ At this stage, the engine acquires the slice clusters. It then extracts common byte sequences from each cluster . Such sequences are small (only tens of bytes) and should contain less dummy information.  
-+ Finally, the engine formats the sequences with `pattern formation plugin` to output the patterns.  
++ It applies the **`file slicing plugin`** to slice the input files.  
++ It correlates the slices by examining their similarity with the help of **`similarity comparison plugin`**.  
++ Now the engine acquires the file slice clusters. It then extracts the common binary signature from each cluster.  
++ Finally, the engine outputs the signatures with **`pattern formation plugin`**.  
 
-<img src="https://raw.githubusercontent.com/ZSShen/BinaryCluster-YaraGenerator/master/res/picture/Pattern.png" width="450px" height="500px"/> 
+| <img src="https://raw.githubusercontent.com/ZSShen/BinaryCluster-YaraGenerator/master/res/picture/Pattern.png" width="450px" height="500px"/> |
+|---|
+| The example pattern for the Windows Notepad and its packed version using several kinds of software protectors. |
 
-As mentioned above, we have three kinds of plugins:  
-+ File slicing - Slicing an input file via specific format parsing. (E.g. PE, DEX)  
-+ Similarity comparison - Measuring the similarity for a pair of slices. (E.g. ssdeep, ngram)  
-+ Pattern formation - Producing YARA pattern with external file format module if necessary.   
+**As mentioned above, we have three kinds of plugins:**  
++ **`File slicing`** - Slicing an input file by format parsing. (E.g. Windows PE, Android DEX)  
++ **`Similarity comparison`** - Measuring the similarity for a pair of slices. (E.g. ssdeep, ngram)  
++ **`Pattern formation`** - Producing YARA pattern.
 
-If developers intend for additional supports , they can patch new plugins in the plugin source directory and use the build system introduced below to come out the libraries.  
+If analysts intend for custom research purpose, they can craft the custom plugins in the plugin source directory and use the MeltingPot build script to create the libraries.  
 
-
-###Installation  
-####***Basic***
+## **Installation**  
+#### **Basic**  
 First of all, we need to prepare the following utilities:
 - [CMake] - A cross platform build system.
 - [Valgrind] - An instrumentation framework help for memory debug.
@@ -60,8 +57,8 @@ And the relevant plugins should be under:
 - `./plugin/similarity/lib/release/libsim_*.so`
 - `./plugin/format/lib/release/libfmt_*.so`
 
-####***Advanced***
-If we patch the main engine or the plugins, we can move to the corresponding subtree to rebuild the binary.   
+#### **Advanced**  
+If we modify the main engine or the plugins, we can move to the corresponding subdirectory to rebuild the binary.   
 To build the engine independently:
 ``` sh
 $ cd engine
@@ -72,7 +69,7 @@ $ make
 ```
 Note that we have two build types.  
 For debug build, the compiler debug flags are on, and the binary locates at `./engine/bin/debug/cluster`.  
-For release build, the optimized binary locates at `./engine/bin/release/cluster`.  
+For optimized build, the binary locates at `./engine/bin/release/cluster`.  
 
 To build the plugin independently (using File Slicing plugin as example):   
 ``` sh
@@ -84,28 +81,23 @@ $ make
 ```
 Again, we must specify the build type for compiliation.  
 For debug build, the binary locates at `./plugin/slice/debug/libslc_*.so`.  
-For release build, the binary locates at `./plugin/slice/release/libslc_*.so`.  
+For optimized build, the binary locates at `./plugin/slice/release/libslc_*.so`.  
 For the other two kinds of plugins, the build rule is the same.  
 
-
-###Usage
-To run the engine, we should first specify some relevant configurations.  
-The example is shown in `./engine/cluster.conf`.  
-  
-<img src="https://raw.githubusercontent.com/ZSShen/BinaryCluster-YaraGenerator/master/res/picture/Configuration.png" width="450px" height="370px"/> 
-
+## **Usage**
+To run the engine, we should first specify some relevant configurations. The example is shown in `./engine/cluster.conf`.  
 And we discuss these parameters below:  
 
-| Parameter     | Description           |
+| Parameter | Description |
 | ------------- | ------------- |
-| `SIZE_SLICE` | The size of file slice |
-| `SIZE_HEX_BLOCK` | The length of common byte sequence extracted from a slice cluster |
-| `COUNT_HEX_BLOCK` | The number of to be extracted sequences per each cluster |
-| `THRESHOLD_SIMILARITY` | The threshold to cluster similar slices |
-| `RATIO_NOISE` | The ratio of dummy bytes (00 or ff) in a hex block (extracted sequence) |
-| `RATIO_WILDCARD` | The ratio of wildcard characters in a hex block |
-| `TRUNCATE_GROUP_SIZE_LESS_THAN` | The threshold to truncate trivial slice clusters |
-| `FLAG_COMMENT` | The control flag for detailed comments to be shown in pattern |
+| `SIZE_SLICE` | The size of the sliced file binary |
+| `SIZE_HEX_BLOCK` | The length of the signature extracted from a slice cluster |
+| `COUNT_HEX_BLOCK` | The number of to be extracted signatures from a cluster |
+| `THRESHOLD_SIMILARITY` | The threshold to group similar slices |
+| `RATIO_NOISE` | The ratio of dummy bytes (00 or ff) in a signature |
+| `RATIO_WILDCARD` | The ratio of wildcard characters in a signature |
+| `TRUNCATE_GROUP_SIZE_LESS_THAN` | The threshold to ignore trivial clusters |
+| `FLAG_COMMENT` | The knob for pattern comments |
 | `PATH_ROOT_INPUT` | The pathname of input sample set |
 | `PATH_ROOT_OUTPUT` | The pathname of output pattern folder |
 | `PATH_PLUGIN_SLICE` | The pathname of the file slicing plugin |
@@ -114,16 +106,24 @@ And we discuss these parameters below:
 
 In addition, we have the following advanced parameters:  
 
-| Parameter     | Description           |
+| Parameter | Description |
 | ------------- | ------------- |
 | `COUNT_THREAD` | The number of running threads |
 | `IO_BANDWIDTH` | The maximum number of files a thread can simultaneously open |
 
-With the configuration file prepared, we can run the engine like:  
-For normal task, run `./engine/bin/release/cluster --conf ./engine/cluster.conf`.  
-For memory debug, use debug build and run `valgrind ./engine/bin/debug/cluster --conf ./engine/cluster.conf`.  
-Note that if we apply valgrind for memory debugging, there will be a "still-reachable" alert in the summary report. This is due to the side effect provided by GLib. Essentially, the entire project source is memory safe :-).  
+With the configuration file prepared, we can launch the MeltPot engine:  
++ For normal task, run:  
+```sh
+./engine/bin/release/cluster --conf ./engine/cluster.conf
+```
++ For memory debug, use debug build and run:  
+```sh
+valgrind ./engine/bin/debug/cluster --conf ./engine/cluster.conf
+```
+Note that if we apply valgrind for memory debugging, there will be a "still-reachable" alert in the summary report. This is due to the side effect produced by GLib. MeltingPot should be memory safe :-).  
 
+## **Contact**
+Please contact me via the mail ***andy.zsshen@gmail.com***.  
 
 [YARA]:http://plusvic.github.io/yara/
 [CMake]:http://www.cmake.org/
